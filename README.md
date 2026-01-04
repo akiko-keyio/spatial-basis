@@ -193,9 +193,11 @@ class spatial_basis.PolynomialBasis(degree=2, include_bias=True, basis='polynomi
 #### Parameters
 
 - **degree** : int, default=2
+  
     多项式最高阶数 $d$。输出特征数为 $(d+1)(d+2)/2$。
 
 - **include_bias** : bool, default=True
+  
     是否包含常数项。
 
 - **basis** : {'polynomial', 'legendre', 'chebyshev'}, default='polynomial'
