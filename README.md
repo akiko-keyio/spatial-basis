@@ -308,16 +308,16 @@ class spatial_basis.PolynomialBasis(degree=2, include_bias=True, basis='polynomi
 
 #### 坐标转换
 
-球面基函数定义在球面坐标系，因此需要将地理坐标转换为球面坐标 $(\text{lon}, \text{lat}) \to (\theta, \phi)$，其中 $\theta \in [0, \pi]$ 为余纬， $\phi \in [0, 2\pi]$ 为方位角。
+球面基函数定义在球面坐标系，如果输入数据为地理坐标 $(\text{lon}, \text{lat})$，则需要先转换为球面坐标 $(\theta, \phi)$ ，其中 $\theta \in [0, \pi]$ 为余纬， $\phi \in [0, 2\pi]$ 为方位角。
 
 `coords_convert_method` 参数控制转换方式：
 
 | 方法 | 说明 | 适用场景 |
 |:---|:---|:---|
-| `'non'` | 不转换，用户直接输入 $(\theta, \phi)$ | 全球覆盖数据 |
-| `'basic'` | 转换余纬 $\theta = \pi/2 - \text{lat}$ | 全球覆盖数据 |
-| `'central'` | 将数据中心旋转到北极 | 区域数据 |
-| `'central_scale'` | 旋转 + 缩放到半球边界 | 区域数据 |
+| `'non'` | 直接输入球面坐标时无需转换 | 全球覆盖数据 |
+| `'basic'` | 转换纬度为余纬度 | 全球覆盖数据 |
+| `'central'` | 将极点旋转到北极 | 区域数据 |
+| `'central_scale'` | 将极点旋转到北极，并缩放边界 | 区域数据 |
 
 ![坐标转换方法](docs/coords_convert_methods.png)
 
@@ -344,7 +344,7 @@ $$
 Y_{l,m}(\theta, \phi) = \sqrt{\frac{2l+1}{4\pi} \cdot \frac{(l-m)!}{(l+m)!}} \, P_l^{|m|}(\cos\theta) \begin{cases} \sqrt{2} \cos(m\phi) & m > 0 \\\\ 1 & m = 0 \\\\ \sqrt{2} \sin(|m|\phi) & m < 0 \end{cases}
 $$
 
-其中 $l$ 为阶数，$m$ 为阶次，$P_l^m(x)$ 为伴随勒让德多项式（含 Condon-Shortley 相位）。
+其中 $l$ 为阶数，$m$ 为阶次， $P_l^m(x)$ 为伴随勒让德多项式（含 Condon-Shortley 相位）。
 
 ![球谐函数可视化](docs/sh_pyramid.png)
 
