@@ -94,15 +94,10 @@ class PolynomialBasis(TransformerMixin, BaseEstimator):
         else:
             raise ValueError(f"degree must be a non-negative int, got {self.degree}.")
 
-<<<<<<< HEAD:src/spatial_basis/basis.py
         self.min_vals_ = X.min(axis=0)
         self.max_vals_ = X.max(axis=0)
-=======
-        self.min_vals = X.min(axis=0)
-        self.max_vals = X.max(axis=0)
-        self.range_ = self.max_vals - self.min_vals
-        self.range_[self.range_ == 0] = 1
->>>>>>> 6fc7b44f2e3820317a57cfc10058b498af663e10:src/geospectra/basis.py
+        self.range_ = self.max_vals_ - self.min_vals_
+        self.range_[self.range_ == 0] = 1  # Avoid division by zero
         self.n_output_features_ = len(self.get_feature_names_out())
 
         return self
@@ -165,11 +160,7 @@ class PolynomialBasis(TransformerMixin, BaseEstimator):
 
         X = validate_data(self, X, accept_sparse=True, reset=False)
 
-<<<<<<< HEAD:src/spatial_basis/basis.py
-        X = 2 * (X - self.min_vals_) / (self.max_vals_ - self.min_vals_) - 1
-=======
-        X = 2 * (X - self.min_vals) / self.range_ - 1
->>>>>>> 6fc7b44f2e3820317a57cfc10058b498af663e10:src/geospectra/basis.py
+        X = 2 * (X - self.min_vals_) / self.range_ - 1
 
         X1, X2 = X[:, 0], X[:, 1]
 
@@ -265,9 +256,9 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
     def __sklearn_tags__(self):
         """Override sklearn tags to indicate this transformer requires 2D input with exactly 2 features."""
         tags = super().__sklearn_tags__()
-        # Mark that we need special input validation (lon, lat only)
-        tags.input_tags.pairwise = True  # Input is pairwise (lon, lat coordinates)
-        tags._skip_test = True  # Skip standard check_estimator tests due to 2-feature requirement
+        # This transformer requires exactly 2 features (lon, lat)
+        tags.input_tags.two_d_array = True
+        tags.input_tags.allow_nan = False
         return tags
 
     @_fit_context(prefer_skip_nested_validation=True)
@@ -334,6 +325,13 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
 
         lon, lat = X[:, 0], X[:, 1]
         self.coords_converter_.fit(lon, lat)
+        
+        # Expose key fitted parameters as top-level attributes for sklearn compliance
+        self.pole_ = (
+            90 - np.degrees(self.coords_converter_.theta0),  # lat
+            np.degrees(self.coords_converter_.phi0)  # lon
+        )
+        self.scale_ = self.coords_converter_.scale
         
         # Pre-compute terms_ during fit for sklearn compliance
         self.terms_ = []
