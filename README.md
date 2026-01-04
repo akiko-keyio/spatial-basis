@@ -66,6 +66,7 @@ X_design = basis.fit_transform(X)
 $$
 (lon, lat) \xrightarrow{\text{transform}} (\theta, \phi)
 $$
+
 其中：
 
 - $\theta \in [0, \pi]$：天顶角（余纬），$\theta=0$ 对应北极，$\theta=\pi$ 对应南极
@@ -166,6 +167,8 @@ $$
 $$
 H_{l,m}(\theta, \phi) = \sqrt{2} \, Y_{l,m}(\theta, \phi),    \text{ if } (l+m) \text{ is even}
 $$
+
+
 
 
 
