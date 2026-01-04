@@ -38,7 +38,6 @@ X_design = basis.transform(X)
 X_design = basis.fit_transform(X)
 ```
 
-
 ---
 
 ## 球谐基函数
@@ -69,46 +68,36 @@ $$
 
 其中：
 
-- $\theta \in [0, \pi]$：天顶角（余纬），$\theta=0$ 对应北极，$\theta=\pi$ 对应南极
+- $\theta \in [0, \pi]$：天顶角（余纬）， $\theta=0$ 对应北极， $\theta=\pi$ 对应南极
 
 - $\phi \in [0, 2\pi]$：方位角（经度）
 
-  
-
 **坐标转换方法** `coords_convert_method` 根据数据在球面上的分布选择
 
-| 配置              | 转换方法                                 | 适用场景                                |
-| ----------------- | ---------------------------------------- | --------------------------------------- |
-| `'non'`           | 不转换                                   | 全球覆盖数据，用户输入 $(\theta, \phi)$ |
-| `'basic'`         | 转换余纬 $\theta = \pi/2 - \text{lat}$ | 全球覆盖数据，用户输入 $(lon, lat)$     |
-| `'central'`       | 将数据中心旋转到北极                     | 局域覆盖数据，用户输入 $(lon, lat)$     |
-| `'central_scale'` | 旋转 + 缩放到半球边界                    | 局域覆盖数据，用户输入 $(lon, lat)$     |
+| 配置 | 转换方法 | 适用场景 |
+| :--- | :--- | :--- |
+| `'non'` | 不转换 | 全球覆盖数据，用户输入 $(\theta, \phi)$ |
+| `'basic'` | 转换余纬 $\theta = \pi/2 - \text{lat}$ | 全球覆盖数据，用户输入 $(lon, lat)$ |
+| `'central'` | 将数据中心旋转到北极 | 局域覆盖数据，用户输入 $(lon, lat)$ |
+| `'central_scale'` | 旋转 + 缩放到半球边界 | 局域覆盖数据，用户输入 $(lon, lat)$ |
 
 ![坐标转换示意图](docs/coords_convert_methods.png)
 
-
-
 **极点参数** `pole` 指定旋转的目标极点（仅 `'central'` 和 `'central_scale'` 时生效）
 
-| 配置           | 极点位置                         |
-| -------------- | -------------------------------- |
-| `'xyzmean'`    | 将数据的三维笛卡尔质心作为新北极 |
-| `'haversine'`  | 使用球面距离的几何中心           |
-| `(lat0, lon0)` | 手动指定极点位置                 |
+| 配置 | 极点位置 |
+| :--- | :--- |
+| `'xyzmean'` | 将数据的三维笛卡尔质心作为新北极 |
+| `'haversine'` | 使用球面距离的几何中心 |
+| `(lat0, lon0)` | 手动指定极点位置 |
 
-- 选择 `'xyzmean'`，`'haversine'` 配置时，极点位置 $(lat_0, lon_0)$ 在  `basis.fit` 过程中计算并保存于 `basis`内部
-
-  
+- 选择 `'xyzmean'`， `'haversine'` 配置时，极点位置 $(lat_0, lon_0)$ 在 `basis.fit` 过程中计算并保存于 `basis` 内部
 
 **缩放参数** `hemisphere_scale`：控制缩放比例（仅 `'central_scale'` 时生效）
 
-- `'auto'`（默认）：`cup=True` 时为 0.5，`cup=False` 时为 1.0
+- `'auto'`（默认）： `cup=True` 时为 0.5， `cup=False` 时为 1.0
 
 - 数值 (0, 1.0]：手动指定缩放因子，如 0.5 表示缩放至 180*0.5=90 °
-
-  
-
-
 
 ---
 
@@ -120,27 +109,19 @@ $$
 Y_{l,m}(\theta, \phi) = \sqrt{\frac{2l+1}{4\pi} \cdot \frac{(l-m)!}{(l+m)!}} \, P_l^{|m|}(\cos\theta) \begin{cases} \sqrt{2} \cos(m\phi) & m > 0 \\\\ 1 & m = 0 \\\\ \sqrt{2} \sin(|m|\phi) & m < 0 \end{cases}
 $$
 
-其中， $l$ 为阶数（degree）；$m$ 为阶次（order）；$P_l^m(x)$ 为伴随勒让德多项式，包含 $(-1)^m$ 相位。
-
-
+其中， $l$ 为阶数（degree）； $m$ 为阶次（order）； $P_l^m(x)$ 为伴随勒让德多项式，包含 $(-1)^m$ 相位。
 
 **可视化**（红色为正值，蓝色为负值）：
 
 ![球谐函数形态](docs/sh_pyramid.png)
 
-
-
-
-
-**设计矩阵**：$B\in \mathbb{R}^{N \times K}$ 由 $N$ 个样本的 $K$ 个球谐函数值组成。$B_{ij}$ 表示第 $i$ 个样本坐标 $(\theta_i, \phi_i)$ 对应的第 $j$ 个球谐函数值：
+**设计矩阵**： $B\in \mathbb{R}^{N \times K}$ 由 $N$ 个样本的 $K$ 个球谐函数值组成。 $B_{ij}$ 表示第 $i$ 个样本坐标 $(\theta_i, \phi_i)$ 对应的第 $j$ 个球谐函数值：
 
 $$
 B_{ij} = Y_{l,m}(\theta_i, \phi_i)
 $$
 
-球谐函数数量  $K=(L+1)^2$ 由最高阶次  $L$ 决定
-
-
+球谐函数数量 $K=(L+1)^2$ 由最高阶次 $L$ 决定
 
 **参数说明**：
 
@@ -148,30 +129,24 @@ $$
 
 - `include_bias`：是否包含 $Y_{0,0}$ 常数项（默认 `True`）
 
-  
-
 ---
 
 ### 半球谐函数
 
-标准球谐函数在半球区域 $\Omega_{\text{HS}} = \{\theta \in [0, \pi/2], \phi \in [0, 2\pi]\}$不再正交，通过以下方式：
+标准球谐函数在半球区域 $\Omega_{\text{HS}} = \{\theta \in [0, \pi/2], \phi \in [0, 2\pi]\}$ 不再正交，通过以下方式：
 
 1. 筛选偶数项：仅保留满足 $l+m \equiv 0 \pmod{2}$ 的项
 2. 重新归一化：在半球上归一化
 
-可构造在半球区域正交归一化的的 **半球谐函数**  $H_{l,m}$：
+可构造在半球区域正交归一化的的 **半球谐函数** $H_{l,m}$：
 
 $$
 H_{l,m}(\theta, \phi) = \sqrt{2} \, Y_{l,m}(\theta, \phi),    \text{ if } (l+m) \text{ is even}
 $$
 
-
-
 **可视化**：
 
 ![半球谐函数形态](docs/hsh_pyramid.png)
-
-
 
 **参数说明**：
 
@@ -194,8 +169,6 @@ basis = SphericalHarmonicsBasis(
 X_design = basis.fit_transform(X)
 ```
 
-
-
 ---
 
 ### 正交归一化性质
@@ -206,7 +179,7 @@ $$
 \langle f_i, f_j \rangle = \int_{\Omega} f_i(\theta, \phi) \, f_j(\theta, \phi) \, d\Omega
 $$
 
-其中 $d\Omega = \sin\theta \, d\theta \, d\phi$ 为球面测度，$\Omega$ 为积分域。正交归一化基函数满足：
+其中 $d\Omega = \sin\theta \, d\theta \, d\phi$ 为球面测度， $\Omega$ 为积分域。正交归一化基函数满足：
 
 $$
 \langle f_i, f_j \rangle = \delta_{ij}
@@ -217,10 +190,10 @@ $$
 ![正交性验证](docs/orthogonality_comparison.png)
 
 **验证结果**：
+
 - **(a) SH 在全球**：正交归一化（对角线=1，非对角线≈0）
 - **(b) SH 在半球**：失去正交性（对角线=1/2，非对角线≠0）
 - **(c) HSH 在半球**：正交归一化（对角线=1，非对角线≈0）
-
 
 ---
 
@@ -268,7 +241,7 @@ $$
 
 ### 归一化
 
-在 `fit` 阶段记录输入数据的最小/最大值，`transform` 时将输入归一化到 $[-1, 1]$：
+在 `fit` 阶段记录输入数据的最小/最大值， `transform` 时将输入归一化到 $[-1, 1]$：
 
 $$
 x \to 2 \cdot \frac{x - x_{\min}}{x_{\max} - x_{\min}} - 1
