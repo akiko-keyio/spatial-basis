@@ -64,7 +64,7 @@ X_design = basis.fit_transform(X)
 **坐标转换**将原始数据的经纬度坐标转换至球坐标
 
 $$
-(lon, lat) \xrightarrow{\text{transform}} (\theta, \phi)
+(lon, lat) \to (\theta, \phi)
 $$
 
 其中：
@@ -117,11 +117,14 @@ $$
 **球谐函数** $Y_{l,m}$ 定义为
 
 $$
-Y_{l,m}(\theta, \phi) =  \sqrt{\frac{2l+1}{4\pi} \cdot \frac{(l-m)!}{(l+m)!}} \, P_l^{|m|}(\cos\theta)  \begin{cases}
+Y_{l,m}(\theta, \phi) = \sqrt{\frac{2l+1}{4\pi} \cdot \frac{(l-m)!}{(l+m)!}} \, P_l^{|m|}(\cos\theta)
+\left\{
+\begin{array}{ll}
 \sqrt{2} \cos(m\phi) & m > 0 \\\\
 1 & m = 0 \\\\
 \sqrt{2} \sin(|m|\phi) & m < 0
-\end{cases}
+\end{array}
+\right.
 $$
 其中， $l$ 为阶数（degree）；$m$ 为阶次（order）；$P_l^m(x)$ 为伴随勒让德多项式，包含 $(-1)^m$ 相位。
 
