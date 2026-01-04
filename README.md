@@ -117,8 +117,8 @@ $$
 
 $$
 Y_{l,m}(\theta, \phi) =  \sqrt{\frac{2l+1}{4\pi} \cdot \frac{(l-m)!}{(l+m)!}} \, P_l^{|m|}(\cos\theta)  \begin{cases}
-\sqrt{2} \cos(m\phi) & m > 0 \\
-1 & m = 0 \\
+\sqrt{2} \cos(m\phi) & m > 0 \\\\
+1 & m = 0 \\\\
 \sqrt{2} \sin(|m|\phi) & m < 0
 \end{cases}
 $$
