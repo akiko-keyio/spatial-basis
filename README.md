@@ -314,10 +314,10 @@ class spatial_basis.PolynomialBasis(degree=2, include_bias=True, basis='polynomi
 
 | 方法 | 说明 | 适用场景 |
 |:---|:---|:---|
-| `'non'` | 直接输入球面坐标时无需转换 | 全球覆盖数据 |
-| `'basic'` | 转换纬度为余纬度 | 全球覆盖数据 |
-| `'central'` | 将极点旋转到北极 | 区域数据 |
-| `'central_scale'` | 将极点旋转到北极，并缩放边界 | 区域数据 |
+| `'non'` | 直接输入球面坐标时无需转换 | 全球数据 |
+| `'basic'` | 转换纬度为余纬度 | 全球数据 |
+| `'central'` | 将极点旋转到北极 | 半球数据 |
+| `'central_scale'` | 将极点旋转到北极，并缩放边界 | 球冠数据 |
 
 ![坐标转换方法](docs/coords_convert_methods.png)
 
