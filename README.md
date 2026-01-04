@@ -62,6 +62,7 @@ X_design = basis.fit_transform(X)
 ### 坐标转换
 
 **坐标转换**将原始数据的经纬度坐标转换至球坐标
+
 $$
 (lon, lat) \xrightarrow{\text{transform}} (\theta, \phi)
 $$
@@ -78,7 +79,7 @@ $$
 | 配置              | 转换方法                                 | 适用场景                                |
 | ----------------- | ---------------------------------------- | --------------------------------------- |
 | `'non'`           | 不转换                                   | 全球覆盖数据，用户输入 $(\theta, \phi)$ |
-| `'basic'`         | 转换余纬 $$\theta = \pi/2 - \text{lat}$$ | 全球覆盖数据，用户输入 $(lon, lat)$     |
+| `'basic'`         | 转换余纬 $\theta = \pi/2 - \text{lat}$ | 全球覆盖数据，用户输入 $(lon, lat)$     |
 | `'central'`       | 将数据中心旋转到北极                     | 局域覆盖数据，用户输入 $(lon, lat)$     |
 | `'central_scale'` | 旋转 + 缩放到半球边界                    | 局域覆盖数据，用户输入 $(lon, lat)$     |
 
@@ -113,6 +114,7 @@ $$
 ### 球谐函数
 
 **球谐函数** $Y_{l,m}$ 定义为
+
 $$
 Y_{l,m}(\theta, \phi) =  \sqrt{\frac{2l+1}{4\pi} \cdot \frac{(l-m)!}{(l+m)!}} \, P_l^{|m|}(\cos\theta)  \begin{cases}
 \sqrt{2} \cos(m\phi) & m > 0 \\
@@ -133,6 +135,7 @@ $$
 
 
 **设计矩阵**：$B\in \mathbb{R}^{N \times K}$ 由 $N$ 个样本的 $K$ 个球谐函数值组成。$B_{ij}$ 表示第 $i$ 个样本坐标 $(\theta_i, \phi_i)$ 对应的第 $j$ 个球谐函数值：
+
 $$
 B_{ij} = Y_{l,m}(\theta_i, \phi_i)
 $$
@@ -159,6 +162,7 @@ $$
 2. 重新归一化：在半球上归一化
 
 可构造在半球区域正交归一化的的 **半球谐函数**  $H_{l,m}$：
+
 $$
 H_{l,m}(\theta, \phi) = \sqrt{2} \, Y_{l,m}(\theta, \phi),    \text{ if } (l+m) \text{ is even}
 $$
@@ -251,11 +255,13 @@ $$
 ### 设计矩阵
 
 对于 `degree=d`，生成所有满足 $i + j \le d$ 的项，特征数量为：
+
 $$
 K = \frac{(d+1)(d+2)}{2}
 $$
 
 例如 `degree=2` 时，生成 6 个特征：
+
 $$
 1, \quad x_1, \quad x_2, \quad x_1^2, \quad x_1 x_2, \quad x_2^2
 $$
@@ -265,6 +271,7 @@ $$
 ### 归一化
 
 在 `fit` 阶段记录输入数据的最小/最大值，`transform` 时将输入归一化到 $[-1, 1]$：
+
 $$
 x \to 2 \cdot \frac{x - x_{\min}}{x_{\max} - x_{\min}} - 1
 $$
