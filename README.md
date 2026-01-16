@@ -47,61 +47,47 @@ class spatial_basis.SphericalHarmonicsBasis(degree=2, cup=True,
 #### Parameters
 
 - **degree** : int, default=2
-
     球谐函数最高阶数 $L$。输出特征数：SH 为 $(L+1)^2$，HSH 为 $(L+1)(L+2)/2$。
 
 - **cup** : bool, default=True
-
     若为 True，使用半球谐函数（HSH），仅保留偶宇称项，在半球面上保持正交性；若为 False，使用标准球谐函数（SH）。
 
 - **coords_convert_method** : {'non', 'basic', 'central', 'central_scale'}, default='central_scale'
-
     坐标转换方法。`'non'`：不转换，直接使用输入作为 $(\theta, \phi)$；`'basic'`：经纬度转球坐标；`'central'`：将数据中心旋转到北极；`'central_scale'`：旋转后缩放到半球范围（推荐用于区域数据）。
 
 - **pole** : str or tuple, default='xyzmean'
-
     旋转目标极点（仅 `'central'` 和 `'central_scale'` 方法生效）。`'xyzmean'`：笛卡尔坐标均值投影回球面；`'haversine'`：最小化最大球面距离的点；`(lat, lon)`：手动指定极点坐标。
 
 - **hemisphere_scale** : str or float, default='auto'
-
     半球缩放因子（仅 `'central_scale'` 方法生效）。`'auto'`：HSH 时为 0.5（缩放到 90°），SH 时为 1.0（缩放到 180°）；也可传入 (0, 1] 范围的数值手动指定。
 
 - **include_bias** : bool, default=True
-
     是否包含常数项 $Y_{0,0}$。
 
 - **force_norm** : bool, default=False
-
     强制对输出列进行归一化。
 
 #### Attributes
 
 - **pole_** : tuple of float
-
     拟合后的极点位置 `(lat, lon)`，单位为度。
 
 - **scale_** : float or None
-
     坐标缩放因子（仅 `'central_scale'` 方法时有值）。
 
 - **n_output_features_** : int
-
     输出特征数量。
 
 - **n_features_in_** : int
-
     输入特征数量（始终为 2）。
 
 - **feature_names_in_** : ndarray of shape (2,)
-
     输入特征名称（如有）。
 
 - **coords_converter_** : CoordsConverter
-
     内部坐标转换器对象。
 
 - **terms_** : list of str
-
     球谐函数项列表，格式如 `['Y00', 'Y1-1', 'Y10', ...]`。
 
 #### Methods
@@ -113,11 +99,9 @@ class spatial_basis.SphericalHarmonicsBasis(degree=2, cup=True,
 - **Parameters**
 
     - **X** : array-like of shape (n_samples, 2)
-
         输入坐标，格式为 `[经度, 纬度]`。
 
     - **y** : None
-
         忽略。
 
 - **Returns**
@@ -139,7 +123,6 @@ class spatial_basis.SphericalHarmonicsBasis(degree=2, cup=True,
 - **Returns**
 
     - **X_transformed** : ndarray of shape (n_samples, n_output_features_)
-
         球谐函数设计矩阵。
 
 ##### `fit_transform(X, y=None)`
@@ -149,11 +132,9 @@ class spatial_basis.SphericalHarmonicsBasis(degree=2, cup=True,
 - **Parameters**
 
     - **X** : array-like of shape (n_samples, 2)
-
         输入坐标。
 
     - **y** : None
-
         忽略。
 
 - **Returns**
@@ -193,37 +174,37 @@ class spatial_basis.PolynomialBasis(degree=2, include_bias=True, basis='polynomi
 #### Parameters
 
 - **degree** : int, default=2
+<<<<<<< Updated upstream
   
     多项式最高阶数 $d$。输出特征数为 $(d+1)(d+2)/2$。
 
 - **include_bias** : bool, default=True
   
+=======
+    多项式最高阶数 $d$。输出特征数为 $(d+1)(d+2)/2$。
+
+- **include_bias** : bool, default=True
+>>>>>>> Stashed changes
     是否包含常数项。
 
 - **basis** : {'polynomial', 'legendre', 'chebyshev'}, default='polynomial'
-
     基函数类型。`'legendre'` 和 `'chebyshev'` 在 $[-1,1]$ 上具有正交性。
 
 #### Attributes
 
 - **min_vals_**, **max_vals_** : ndarray of shape (2,)
-
     拟合时记录的输入范围。
 
 - **range_** : ndarray of shape (2,)
-
     输入范围 `max_vals_ - min_vals_`，用于归一化计算。
 
 - **n_output_features_** : int
-
     输出特征数量。
 
 - **n_features_in_** : int
-
     输入特征数量（始终为 2）。
 
 - **feature_names_in_** : ndarray of shape (2,)
-
     输入特征名称（如有）。
 
 #### Methods
@@ -235,17 +216,14 @@ class spatial_basis.PolynomialBasis(degree=2, include_bias=True, basis='polynomi
 - **Parameters**
 
     - **X** : array-like of shape (n_samples, 2)
-
         输入数据。
 
     - **y** : None
-
         忽略。
 
 - **Returns**
 
     - **self** : object
-
         拟合后的变换器。
 
 ##### `transform(X)`
@@ -255,8 +233,10 @@ class spatial_basis.PolynomialBasis(degree=2, include_bias=True, basis='polynomi
 - **Parameters**
 
     - **X** : array-like of shape (n_samples, 2)
-
         输入数据。
+
+    - **y** : None
+        忽略。
 
 - **Returns**
 
@@ -271,17 +251,14 @@ class spatial_basis.PolynomialBasis(degree=2, include_bias=True, basis='polynomi
 - **Parameters**
 
     - **X** : array-like of shape (n_samples, 2)
-
         输入数据。
 
     - **y** : None
-
         忽略。
 
 - **Returns**
 
     - **X_transformed** : ndarray of shape (n_samples, n_output_features_)
-
         多项式设计矩阵。
 
 ##### `get_feature_names_out(input_features=None)`
@@ -291,13 +268,11 @@ class spatial_basis.PolynomialBasis(degree=2, include_bias=True, basis='polynomi
 - **Parameters**
 
     - **input_features** : array-like of str or None, default=None
-
         输入特征名称。若为 None，使用默认名称。
 
 - **Returns**
 
     - **feature_names_out** : ndarray of str
-
         输出特征名称，格式如 `['1', 'x0', 'x1', 'L2(x0)', ...]`。
 
 ---
