@@ -2,9 +2,10 @@
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.special import sph_harm_y
 from sklearn.base import clone
 
-from spatial_basis import SphericalHarmonicsBasis
+from spatial_basis import PolynomialBasis, SphericalHarmonicsBasis
 
 
 # =============================================================================
@@ -52,6 +53,7 @@ def test_get_feature_names_out():
     
     names = basis.get_feature_names_out()
     assert len(names) == basis.n_output_features_
+    assert names.tolist() == ["Y:0,0", "Y:1,-1", "Y:1,1", "Y:2,-2", "Y:2,0", "Y:2,2"]
 
 
 def test_get_feature_names_out_validates_features():
@@ -108,13 +110,98 @@ def test_transform_is_stateless():
     assert basis.n_output_features_ == n_output_after_fit, "n_output_features_ should not change"
 
 
+def test_polynomial_fit_exposes_output_metadata():
+    """Test PolynomialBasis exposes fitted output metadata."""
+    X = np.array([[0.0, 0.0], [1.0, 2.0], [2.0, 4.0]])
+
+    basis = PolynomialBasis(degree=2, include_bias=True, basis="polynomial")
+    basis.fit(X)
+
+    expected_powers = np.array(
+        [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [2, 0]],
+        dtype=int,
+    )
+    assert np.array_equal(basis.powers_, expected_powers)
+    assert np.array_equal(basis.feature_degrees_, expected_powers.sum(axis=1))
+    assert basis.n_output_features_ == expected_powers.shape[0]
+
+
+def test_polynomial_output_metadata_aligns_with_transform_and_names():
+    """Test PolynomialBasis uses powers_ as single output schema source."""
+    X = pd.DataFrame(
+        [[0.0, 0.0], [1.0, 2.0], [2.0, 4.0]],
+        columns=["lon", "lat"],
+    )
+
+    basis = PolynomialBasis(degree=2, include_bias=True, basis="polynomial")
+    Xt = basis.fit_transform(X)
+    names = basis.get_feature_names_out()
+    X_raw = X.to_numpy()
+    X_scaled = 2 * (X_raw - basis.min_vals_) / basis.range_ - 1
+    expected = np.column_stack(
+        [
+            (X_scaled[:, 0] ** i) * (X_scaled[:, 1] ** j)
+            for i, j in basis.powers_
+        ]
+    )
+
+    assert Xt.shape[1] == len(names) == len(basis.feature_degrees_) == len(basis.powers_)
+    assert np.allclose(Xt, expected)
+    assert names.tolist() == ["1", "lat", "lat^2", "lon", "lon lat", "lon^2"]
+
+
+def test_spherical_fit_exposes_output_metadata():
+    """Test SphericalHarmonicsBasis exposes fitted numeric output metadata."""
+    X = np.array([[116.4, 39.9], [121.5, 31.2], [114.1, 22.6]])
+
+    basis = SphericalHarmonicsBasis(degree=2, cup=True)
+    basis.fit(X)
+
+    expected_indices = np.array(
+        [[0, 0], [1, -1], [1, 1], [2, -2], [2, 0], [2, 2]],
+        dtype=int,
+    )
+    assert np.array_equal(basis.harmonic_indices_, expected_indices)
+    assert np.array_equal(basis.feature_degrees_, expected_indices[:, 0])
+    assert basis.n_output_features_ == expected_indices.shape[0]
+
+
+def test_spherical_output_metadata_aligns_with_transform_and_names():
+    """Test SphericalHarmonicsBasis keeps names, degrees and columns aligned."""
+    X = np.array([[116.4, 39.9], [121.5, 31.2], [114.1, 22.6]])
+
+    basis = SphericalHarmonicsBasis(degree=2, cup=True)
+    Xt = basis.fit_transform(X)
+    names = basis.get_feature_names_out()
+    theta, phi = basis.coords_converter_.transform(X[:, 0], X[:, 1])
+
+    expected = []
+    for order, m in basis.harmonic_indices_:
+        order = int(order)
+        m = int(m)
+        y_l_m_abs = sph_harm_y(order, abs(m), theta, phi)
+        if m < 0:
+            term = np.sqrt(2) * (-1) ** m * y_l_m_abs.imag
+        elif m == 0:
+            term = y_l_m_abs.real
+        else:
+            term = np.sqrt(2) * (-1) ** m * y_l_m_abs.real
+        expected.append(term)
+    expected = np.column_stack(expected) * np.sqrt(2)
+
+    assert Xt.shape[1] == len(names) == len(basis.feature_degrees_)
+    assert len(basis.harmonic_indices_) == len(names)
+    assert np.allclose(Xt, expected)
+    assert names.tolist() == ["Y:0,0", "Y:1,-1", "Y:1,1", "Y:2,-2", "Y:2,0", "Y:2,2"]
+
+
 def test_get_params_set_params():
     """Test get_params and set_params (sklearn requirement)."""
     basis = SphericalHarmonicsBasis(degree=3, cup=False)
     
     params = basis.get_params()
     assert params['degree'] == 3
-    assert params['cup'] == False
+    assert not params['cup']
     
     basis.set_params(degree=5)
     assert basis.degree == 5

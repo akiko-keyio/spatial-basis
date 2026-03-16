@@ -8,6 +8,90 @@ from scipy.special import sph_harm_y
 from sklearn.utils.validation import validate_data
 
 
+def _enumerate_polynomial_powers(degree: int, include_bias: bool) -> np.ndarray:
+    powers: list[tuple[int, int]] = []
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            if i == 0 and j == 0 and not include_bias:
+                continue
+            powers.append((i, j))
+    return np.asarray(powers, dtype=int).reshape(-1, 2)
+
+
+def _format_polynomial_term(
+    powers: np.ndarray, input_features: np.ndarray, basis: str
+) -> str:
+    i, j = map(int, powers)
+    if i == 0 and j == 0:
+        return "1"
+
+    if basis == "polynomial":
+        term1 = input_features[0] if i != 0 else ""
+        term1 += f"^{i}" if i > 1 else ""
+        term2 = input_features[1] if j != 0 else ""
+        term2 += f"^{j}" if j > 1 else ""
+        return f"{term1} {term2}".strip()
+
+    prefix = "T" if basis == "chebyshev" else "L"
+    term1 = (
+        f"{prefix}{i}({input_features[0]})"
+        if i > 1
+        else f"{input_features[0]}"
+        if i == 1
+        else ""
+    )
+    term2 = (
+        f"{prefix}{j}({input_features[1]})"
+        if j > 1
+        else f"{input_features[1]}"
+        if j == 1
+        else ""
+    )
+    return f"{term1} {term2}".strip()
+
+
+def _evaluate_polynomial_term(
+    powers: np.ndarray, basis: str, x0: np.ndarray, x1: np.ndarray
+) -> np.ndarray:
+    i, j = map(int, powers)
+    if basis == "polynomial":
+        return (x0**i) * (x1**j)
+
+    basis_cls = Legendre if basis == "legendre" else Chebyshev
+    return basis_cls.basis(i)(x0) * basis_cls.basis(j)(x1)
+
+
+def _enumerate_harmonic_indices(
+    degree: int, include_bias: bool, cup: bool
+) -> np.ndarray:
+    indices: list[tuple[int, int]] = []
+    for order in range(degree + 1):
+        if order == 0 and not include_bias:
+            continue
+        for m in range(-order, order + 1):
+            if cup and (m - order) % 2 == 1:
+                continue
+            indices.append((order, m))
+    return np.asarray(indices, dtype=int).reshape(-1, 2)
+
+
+def _format_harmonic_term(indices: np.ndarray) -> str:
+    order, m = map(int, indices)
+    return f"Y:{order},{m}"
+
+
+def _evaluate_real_spherical_harmonic(
+    indices: np.ndarray, theta: np.ndarray, phi: np.ndarray
+) -> np.ndarray:
+    order, m = map(int, indices)
+    y_l_m_abs = sph_harm_y(order, abs(m), theta, phi)
+    if m < 0:
+        return np.sqrt(2) * (-1) ** m * y_l_m_abs.imag
+    if m == 0:
+        return y_l_m_abs.real
+    return np.sqrt(2) * (-1) ** m * y_l_m_abs.real
+
+
 class PolynomialBasis(TransformerMixin, BaseEstimator):
     """An example transformer that returns the element-wise square root.
 
@@ -98,49 +182,22 @@ class PolynomialBasis(TransformerMixin, BaseEstimator):
         self.max_vals_ = X.max(axis=0)
         self.range_ = self.max_vals_ - self.min_vals_
         self.range_[self.range_ == 0] = 1  # Avoid division by zero
-        self.n_output_features_ = len(self.get_feature_names_out())
+        self.powers_ = _enumerate_polynomial_powers(self.degree, self.include_bias)
+        self.feature_degrees_ = self.powers_.sum(axis=1)
+        self.n_output_features_ = self.powers_.shape[0]
 
         return self
 
     def get_feature_names_out(self, input_features=None):
+        check_is_fitted(self, "powers_")
         input_features = _check_feature_names_in(self, input_features)
-        feature_names = []
-        for i in range(self.degree + 1):
-            for j in range(self.degree + 1 - i):
-                if i == 0 and j == 0:
-                    if self.include_bias:
-                        feature_names.append("1")
-                    continue
-
-                elif self.basis == "polynomial":
-                    term1 = input_features[0] if i != 0 else ""
-                    term1 += f"^{i}" if i > 1 else ""
-                    term2 = input_features[1] if j != 0 else ""
-                    term2 += f"^{j}" if j > 1 else ""
-                    feature_names.append(f"{term1} {term2}".strip())
-
-                else:
-                    f = (
-                        "T" if self.basis == "chebyshev" else "L"
-                    )  # if self.basis == 'legendre'
-
-                    term1 = (
-                        f"{f}{i}({input_features[0]})"
-                        if i > 1
-                        else f"{input_features[0]}"
-                        if i == 1
-                        else ""
-                    )
-                    term2 = (
-                        f"{f}{j}({input_features[1]})"
-                        if j > 1
-                        else f"{input_features[1]}"
-                        if j == 1
-                        else ""
-                    )
-                    feature_names.append(f"{term1} {term2}".strip())
-
-        return np.asarray(feature_names, dtype=object)
+        return np.asarray(
+            [
+                _format_polynomial_term(powers, input_features, self.basis)
+                for powers in self.powers_
+            ],
+            dtype=object,
+        )
 
     def transform(self, X):
         """A reference implementation of a transform function.
@@ -164,31 +221,10 @@ class PolynomialBasis(TransformerMixin, BaseEstimator):
 
         X1, X2 = X[:, 0], X[:, 1]
 
-        X_transform = np.ones((len(X), self.n_output_features_))
-        index = 0
-        for i in range(self.degree + 1):
-            for j in range(self.degree + 1 - i):
-                if i == 0 and j == 0:
-                    if self.include_bias:
-                        X_transform[:, index] = 1
-                        index += 1
-                    continue
-                if self.basis == "polynomial":
-                    X_transform[:, index] = (X1**i) * (X2**j)
-                elif self.basis == "legendre":
-                    X_transform[:, index] = Legendre.basis(i)(X1) * Legendre.basis(j)(
-                        X2
-                    )
-                else:  # self.basis=='chebyshev':
-                    X_transform[:, index] = Chebyshev.basis(i)(X1) * Chebyshev.basis(j)(
-                        X2
-                    )
-
-                index += 1
-        
-        if index != self.n_output_features_:
-            raise ValueError(
-                f"Mismatch in output features: expected {self.n_output_features_}, got {index}"
+        X_transform = np.empty((len(X), self.n_output_features_))
+        for index, powers in enumerate(self.powers_):
+            X_transform[:, index] = _evaluate_polynomial_term(
+                powers, self.basis, X1, X2
             )
 
         return X_transform
@@ -298,7 +334,11 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
 
         self.min_vals_ = X.min(axis=0)
         self.max_vals_ = X.max(axis=0)
-        self.n_output_features_ = len(self.get_feature_names_out())
+        self.harmonic_indices_ = _enumerate_harmonic_indices(
+            self.degree, self.include_bias, self.cup
+        )
+        self.feature_degrees_ = self.harmonic_indices_[:, 0]
+        self.n_output_features_ = self.harmonic_indices_.shape[0]
         empirical_n_output_features_ = (
             (self.degree + 1) * (self.degree + 2) // 2
             if self.cup
@@ -332,16 +372,11 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
             np.degrees(self.coords_converter_.phi0)  # lon
         )
         self.scale_ = self.coords_converter_.scale
-        
-        # Pre-compute terms_ during fit for sklearn compliance
-        self.terms_ = []
-        for order in range(self.degree + 1):
-            if order == 0 and not self.include_bias:
-                continue
-            for m in range(-order, order + 1):
-                if self.cup and (m - order) % 2 == 1:
-                    continue
-                self.terms_.append(f"Y{order}{m}")
+
+        # Keep legacy string metadata, but derive it from numeric output indices.
+        self.terms_ = [
+            f"Y{order}{m}" for order, m in self.harmonic_indices_.tolist()
+        ]
 
         return self
 
@@ -366,24 +401,13 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
 
         n_samples = len(phi)
         X = np.zeros((n_samples, self.n_output_features_))
-        index = 0
 
         # https://www.wikiwand.com/en/articles/Spherical_harmonics
         # https://www.wikiwand.com/en/articles/Spherical_harmonics#Real_form
-        for order in range(self.degree + 1):
-            if order == 0 and not self.include_bias:
-                continue
-            for m in range(-order, order + 1):
-                if self.cup and (m - order) % 2 == 1:
-                    continue
-                Y_l_m_abs = sph_harm_y(order, abs(m), theta, phi)
-                if m < 0:
-                    X[:, index] = np.sqrt(2) * (-1) ** m * Y_l_m_abs.imag
-                elif m == 0:
-                    X[:, index] = Y_l_m_abs.real
-                else:
-                    X[:, index] = np.sqrt(2) * (-1) ** m * Y_l_m_abs.real
-                index = index + 1
+        for index, harmonic_index in enumerate(self.harmonic_indices_):
+            X[:, index] = _evaluate_real_spherical_harmonic(
+                harmonic_index, theta, phi
+            )
 
         #
         if self.cup:
@@ -407,17 +431,12 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         feature_names : ndarray of str
             Transformed feature names.
         """
-        input_features = _check_feature_names_in(self, input_features)
-        feature_names = []
-        for order in range(self.degree + 1):
-            if order == 0 and not self.include_bias:
-                continue
-            for m in range(-order, order + 1):
-                if self.cup and (m - order) % 2 == 1:
-                    continue
-                feature_names.append(f"Y:{order},{m}")
-
-        return np.asarray(feature_names, dtype=object)
+        check_is_fitted(self, "harmonic_indices_")
+        _check_feature_names_in(self, input_features)
+        return np.asarray(
+            [_format_harmonic_term(indices) for indices in self.harmonic_indices_],
+            dtype=object,
+        )
 
 
 class CoordsConverter:
