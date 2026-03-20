@@ -23,6 +23,34 @@ def test_basic_fit_transform():
     assert X_transformed.shape[1] == basis.n_output_features_
 
 
+def test_normalize_uses_fitted_column_norms():
+    """Test normalize reuses column norms learned during fit."""
+    X_train = np.array(
+        [
+            [116.4, 39.9],
+            [121.5, 31.2],
+            [114.1, 22.6],
+            [113.3, 23.1],
+        ]
+    )
+    X_test = np.array([[118.8, 32.1], [110.2, 19.6]])
+
+    basis = SphericalHarmonicsBasis(degree=2, cup=True, normalize=True)
+    Xt_fit_transform = basis.fit_transform(X_train)
+    Xt_transform_train = basis.transform(X_train)
+
+    raw_basis = SphericalHarmonicsBasis(degree=2, cup=True, normalize=False)
+    raw_basis.fit(X_train)
+    Xt_raw_test = raw_basis.transform(X_test)
+    Xt_transform_test = basis.transform(X_test)
+
+    assert np.allclose(Xt_fit_transform, Xt_transform_train)
+    assert np.allclose(
+        Xt_transform_test,
+        Xt_raw_test / basis.column_norms_,
+    )
+
+
 def test_transform_checks_feature_count():
     """Test that transform validates feature count."""
     rng = np.random.default_rng(0)

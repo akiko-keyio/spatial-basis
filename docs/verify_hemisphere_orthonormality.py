@@ -39,7 +39,7 @@ def verify_orthonormality():
         include_bias=True, 
         pole="xyzmean", # Use xyzmean which should find North Pole for uniform hemisphere
         coords_convert_method='basic',
-        force_norm=False # We want to check theoretical normalization, not forced discrete normalization
+        normalize=False
     )
     
     # 3. Transform

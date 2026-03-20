@@ -264,7 +264,7 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
             StrOptions({"auto"}),
             Interval(RealNotInt, 0, 1, closed="right"),
         ],
-        "force_norm": ["boolean"],
+        "normalize": ["boolean"],
         "coords_convert_method": [
             StrOptions({"central_scale", "central", "basic", "non"})
         ],
@@ -278,7 +278,7 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         cup=True,
         include_bias=True,
         hemisphere_scale="auto",
-        force_norm=False,
+        normalize=False,
         coords_convert_method="central_scale",
     ) -> None:
         self.degree = degree
@@ -286,7 +286,7 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         self.cup = cup
         self.include_bias = include_bias
         self.hemisphere_scale = hemisphere_scale
-        self.force_norm = force_norm
+        self.normalize = normalize
         self.coords_convert_method = coords_convert_method
 
     def __sklearn_tags__(self):
@@ -365,6 +365,13 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
 
         lon, lat = X[:, 0], X[:, 1]
         self.coords_converter_.fit(lon, lat)
+
+        if self.normalize:
+            theta, phi = self.coords_converter_.transform(lon, lat)
+            X_basis = self._build_design_matrix(theta, phi)
+            self.column_norms_ = self._compute_column_norms(X_basis)
+        elif hasattr(self, "column_norms_"):
+            delattr(self, "column_norms_")
         
         # Expose key fitted parameters as top-level attributes for sklearn compliance
         self.pole_ = (
@@ -379,6 +386,30 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         ]
 
         return self
+
+    def _build_design_matrix(self, theta, phi):
+        """Evaluate the unnormalized spherical harmonics design matrix."""
+        n_samples = len(phi)
+        X = np.zeros((n_samples, self.n_output_features_))
+
+        # https://www.wikiwand.com/en/articles/Spherical_harmonics
+        # https://www.wikiwand.com/en/articles/Spherical_harmonics#Real_form
+        for index, harmonic_index in enumerate(self.harmonic_indices_):
+            X[:, index] = _evaluate_real_spherical_harmonic(
+                harmonic_index, theta, phi
+            )
+
+        if self.cup:
+            X = X * np.sqrt(2)
+
+        return X
+
+    @staticmethod
+    def _compute_column_norms(X):
+        """Compute per-column L2 norms from the training design matrix."""
+        norms = np.linalg.norm(X, axis=0)
+        norms[norms == 0] = 1.0
+        return norms
 
     def transform(self, X):
         """Transform the input data to spherical harmonics features.
@@ -398,23 +429,10 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         X = validate_data(self, X, accept_sparse=True, reset=False)
         lon, lat = X[:, 0], X[:, 1]
         theta, phi = self.coords_converter_.transform(lon, lat)
+        X = self._build_design_matrix(theta, phi)
 
-        n_samples = len(phi)
-        X = np.zeros((n_samples, self.n_output_features_))
-
-        # https://www.wikiwand.com/en/articles/Spherical_harmonics
-        # https://www.wikiwand.com/en/articles/Spherical_harmonics#Real_form
-        for index, harmonic_index in enumerate(self.harmonic_indices_):
-            X[:, index] = _evaluate_real_spherical_harmonic(
-                harmonic_index, theta, phi
-            )
-
-        #
-        if self.cup:
-            X = X * np.sqrt(2)
-
-        if self.force_norm:
-            X = X * X.shape[0] / np.linalg.norm(X, axis=0)
+        if self.normalize:
+            X = X / self.column_norms_
 
         return X
 

@@ -37,7 +37,7 @@ X_poly = poly_basis.fit_transform(X)  # shape: (n_samples, 10)
 ```python
 class spatial_basis.SphericalHarmonicsBasis(degree=2, cup=True,
     coords_convert_method='central_scale', pole='xyzmean',
-    hemisphere_scale='auto', include_bias=True, force_norm=False)
+    hemisphere_scale='auto', include_bias=True, normalize=False)
 ```
 
 从地理坐标生成球谐函数设计矩阵。根据 `cup` 参数选择球谐函数（SH）或半球谐函数（HSH）。
@@ -64,8 +64,8 @@ class spatial_basis.SphericalHarmonicsBasis(degree=2, cup=True,
 - **include_bias** : bool, default=True
     是否包含常数项 $Y_{0,0}$。
 
-- **force_norm** : bool, default=False
-    强制对输出列进行归一化。
+- **normalize** : bool, default=False
+    是否将设计矩阵的每列归一化到单位 L2 范数。缩放参数在 `fit` 时从训练数据学习，`transform` 时固定复用。
 
 #### Attributes
 
@@ -89,6 +89,9 @@ class spatial_basis.SphericalHarmonicsBasis(degree=2, cup=True,
 
 - **terms_** : list of str
     球谐函数项列表，格式如 `['Y00', 'Y1-1', 'Y10', ...]`。
+
+- **column_norms_** : ndarray of shape (n_output_features_,)
+    训练集设计矩阵各列的 L2 范数（仅 `normalize=True` 时存在）。`transform` 时各列除以此值实现归一化。
 
 #### Methods
 
