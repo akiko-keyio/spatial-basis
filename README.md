@@ -65,7 +65,7 @@ class spatial_basis.SphericalHarmonicsBasis(degree=2, cup=True,
     是否包含常数项 $Y_{0,0}$。
 
 - **normalize** : bool, default=False
-    是否将设计矩阵的每列归一化到单位 L2 范数。缩放参数在 `fit` 时从训练数据学习，`transform` 时固定复用。
+    是否按训练集统计做列归一化，使训练集上 `(1/m) * Y^T Y` 的主对角线为 1。缩放参数在 `fit` 时学习，`transform` 时固定复用。
 
 #### Attributes
 
@@ -91,7 +91,10 @@ class spatial_basis.SphericalHarmonicsBasis(degree=2, cup=True,
     球谐函数项列表，格式如 `['Y00', 'Y1-1', 'Y10', ...]`。
 
 - **column_norms_** : ndarray of shape (n_output_features_,)
-    训练集设计矩阵各列的 L2 范数（仅 `normalize=True` 时存在）。`transform` 时各列除以此值实现归一化。
+    训练集设计矩阵各列的 L2 范数（仅 `normalize=True` 时存在）。
+
+- **column_normalizers_** : ndarray of shape (n_output_features_,)
+    实际用于 `transform` 的归一化分母，等于 `column_norms_ / sqrt(m_fit)`，因此训练集满足 `(1/m) * Y^T Y` 对角为 1。
 
 #### Methods
 

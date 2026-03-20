@@ -370,8 +370,14 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
             theta, phi = self.coords_converter_.transform(lon, lat)
             X_basis = self._build_design_matrix(theta, phi)
             self.column_norms_ = self._compute_column_norms(X_basis)
+            self.column_normalizers_ = self._compute_column_normalizers(
+                self.column_norms_,
+                X_basis.shape[0],
+            )
         elif hasattr(self, "column_norms_"):
             delattr(self, "column_norms_")
+            if hasattr(self, "column_normalizers_"):
+                delattr(self, "column_normalizers_")
         
         # Expose key fitted parameters as top-level attributes for sklearn compliance
         self.pole_ = (
@@ -411,6 +417,11 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         norms[norms == 0] = 1.0
         return norms
 
+    @staticmethod
+    def _compute_column_normalizers(column_norms, n_samples):
+        """Compute normalizers so that diag((1/m) * Y^T Y) equals one."""
+        return column_norms / np.sqrt(float(n_samples))
+
     def transform(self, X):
         """Transform the input data to spherical harmonics features.
 
@@ -432,7 +443,7 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         X = self._build_design_matrix(theta, phi)
 
         if self.normalize:
-            X = X / self.column_norms_
+            X = X / self.column_normalizers_
 
         return X
 

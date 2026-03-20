@@ -43,7 +43,7 @@ X_design = basis.transform(X)
 | `pole` | str/tuple | `'xyzmean'` | 极点位置（见下文“坐标转换”） |
 | `hemisphere_scale` | str/float | `'auto'` | 半球缩放比例（见下文“坐标转换”） |
 | `include_bias` | bool | `True` | 是否包含常数项 $Y_{0,0}$ |
-| `normalize` | bool | `False` | 列归一化到单位 L2 范数 |
+| `normalize` | bool | `False` | 按训练集统计归一化，使 (1/m)Y^TY 对角为 1 |
 
 
 

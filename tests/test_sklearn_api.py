@@ -43,12 +43,19 @@ def test_normalize_uses_fitted_column_norms():
     raw_basis.fit(X_train)
     Xt_raw_test = raw_basis.transform(X_test)
     Xt_transform_test = basis.transform(X_test)
+    m_train = X_train.shape[0]
 
     assert np.allclose(Xt_fit_transform, Xt_transform_train)
     assert np.allclose(
         Xt_transform_test,
-        Xt_raw_test / basis.column_norms_,
+        Xt_raw_test / basis.column_normalizers_,
     )
+    assert np.allclose(
+        basis.column_normalizers_,
+        basis.column_norms_ / np.sqrt(m_train),
+    )
+    gram = Xt_fit_transform.T @ Xt_fit_transform / m_train
+    assert np.allclose(np.diag(gram), np.ones(basis.n_output_features_))
 
 
 def test_transform_checks_feature_count():
