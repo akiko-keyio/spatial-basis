@@ -130,6 +130,7 @@ class PolynomialBasis(TransformerMixin, BaseEstimator):
         "degree": [Interval(Integral, 0, None, closed="left")],
         "include_bias": ["boolean"],
         "basis": [StrOptions({"polynomial", "chebyshev", "legendre"})],
+        "normalize": ["boolean"],
     }
 
     def __init__(
@@ -138,10 +139,12 @@ class PolynomialBasis(TransformerMixin, BaseEstimator):
         degree=2,
         include_bias=True,
         basis="polynomial",
+        normalize=False,
     ) -> None:
         self.degree = degree
         self.include_bias = include_bias
         self.basis = basis
+        self.normalize = normalize
 
     @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y=None):
@@ -186,6 +189,19 @@ class PolynomialBasis(TransformerMixin, BaseEstimator):
         self.feature_degrees_ = self.powers_.sum(axis=1)
         self.n_output_features_ = self.powers_.shape[0]
 
+        if self.normalize:
+            X_scaled = 2 * (X - self.min_vals_) / self.range_ - 1
+            X_basis = self._build_design_matrix(X_scaled)
+            self.column_norms_ = self._compute_column_norms(X_basis)
+            self.column_normalizers_ = self._compute_column_normalizers(
+                self.column_norms_,
+                X_basis.shape[0],
+            )
+        elif hasattr(self, "column_norms_"):
+            delattr(self, "column_norms_")
+            if hasattr(self, "column_normalizers_"):
+                delattr(self, "column_normalizers_")
+
         return self
 
     def get_feature_names_out(self, input_features=None):
@@ -217,17 +233,35 @@ class PolynomialBasis(TransformerMixin, BaseEstimator):
 
         X = validate_data(self, X, accept_sparse=True, reset=False)
 
-        X = 2 * (X - self.min_vals_) / self.range_ - 1
+        X_scaled = 2 * (X - self.min_vals_) / self.range_ - 1
+        X_transform = self._build_design_matrix(X_scaled)
 
-        X1, X2 = X[:, 0], X[:, 1]
+        if self.normalize:
+            X_transform = X_transform / self.column_normalizers_
 
-        X_transform = np.empty((len(X), self.n_output_features_))
+        return X_transform
+
+    def _build_design_matrix(self, X_scaled):
+        """Evaluate the unnormalized polynomial design matrix."""
+        X1, X2 = X_scaled[:, 0], X_scaled[:, 1]
+        X_transform = np.empty((len(X_scaled), self.n_output_features_))
         for index, powers in enumerate(self.powers_):
             X_transform[:, index] = _evaluate_polynomial_term(
                 powers, self.basis, X1, X2
             )
-
         return X_transform
+
+    @staticmethod
+    def _compute_column_norms(X):
+        """Compute per-column L2 norms from the training design matrix."""
+        norms = np.linalg.norm(X, axis=0)
+        norms[norms == 0] = 1.0
+        return norms
+
+    @staticmethod
+    def _compute_column_normalizers(column_norms, n_samples):
+        """Compute normalizers so that diag((1/m) * Y^T Y) equals one."""
+        return column_norms / np.sqrt(float(n_samples))
 
 
 class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):

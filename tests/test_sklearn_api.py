@@ -185,6 +185,45 @@ def test_polynomial_output_metadata_aligns_with_transform_and_names():
     assert names.tolist() == ["1", "lat", "lat^2", "lon", "lon lat", "lon^2"]
 
 
+def test_polynomial_normalize_uses_fitted_column_norms():
+    """Test PolynomialBasis normalize reuses column norms learned during fit."""
+    X_train = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 2.0],
+            [2.0, 4.0],
+            [3.0, 3.0],
+        ]
+    )
+    X_test = np.array([[1.5, 2.5], [2.5, 1.0]])
+
+    basis = PolynomialBasis(
+        degree=2, include_bias=True, basis="polynomial", normalize=True
+    )
+    Xt_fit_transform = basis.fit_transform(X_train)
+    Xt_transform_train = basis.transform(X_train)
+
+    raw_basis = PolynomialBasis(
+        degree=2, include_bias=True, basis="polynomial", normalize=False
+    )
+    raw_basis.fit(X_train)
+    Xt_raw_test = raw_basis.transform(X_test)
+    Xt_transform_test = basis.transform(X_test)
+    m_train = X_train.shape[0]
+
+    assert np.allclose(Xt_fit_transform, Xt_transform_train)
+    assert np.allclose(
+        Xt_transform_test,
+        Xt_raw_test / basis.column_normalizers_,
+    )
+    assert np.allclose(
+        basis.column_normalizers_,
+        basis.column_norms_ / np.sqrt(m_train),
+    )
+    gram = Xt_fit_transform.T @ Xt_fit_transform / m_train
+    assert np.allclose(np.diag(gram), np.ones(basis.n_output_features_))
+
+
 def test_spherical_fit_exposes_output_metadata():
     """Test SphericalHarmonicsBasis exposes fitted numeric output metadata."""
     X = np.array([[116.4, 39.9], [121.5, 31.2], [114.1, 22.6]])
