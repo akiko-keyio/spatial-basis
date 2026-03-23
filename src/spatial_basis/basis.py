@@ -92,6 +92,117 @@ def _evaluate_real_spherical_harmonic(
     return np.sqrt(2) * (-1) ** m * y_l_m_abs.real
 
 
+def _precompute_alf_coefficients(
+    degree: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Precompute recursion coefficients for fully normalized ALFs."""
+    alpha = np.zeros((degree + 1, degree + 1), dtype=float)
+    beta = np.zeros((degree + 1, degree + 1), dtype=float)
+
+    for order in range(2, degree + 1):
+        m = np.arange(order, dtype=float)
+        order_sq_minus_m_sq = order * order - m * m
+        alpha[order, :order] = np.sqrt(
+            (4.0 * order * order - 1.0) / order_sq_minus_m_sq
+        )
+        beta[order, :order] = np.sqrt(
+            (2.0 * order + 1.0) * (((order - 1.0) ** 2) - m * m)
+            / ((2.0 * order - 3.0) * order_sq_minus_m_sq)
+        )
+
+    m_vals = np.arange(1, degree + 1, dtype=float)
+    sectoral = np.empty(degree + 1, dtype=float)
+    sectoral[0] = 0.0
+    sectoral[1:] = np.sqrt((2.0 * m_vals + 1.0) / (2.0 * m_vals))
+
+    sub_sectoral = np.sqrt(2.0 * np.arange(degree, dtype=float) + 3.0)
+    return alpha, beta, sectoral, sub_sectoral
+
+
+def _build_harmonic_column_map(
+    harmonic_indices: np.ndarray,
+) -> dict[tuple[int, int], list[tuple[int, int]]]:
+    """Map ``(order, |m|)`` to output columns and signed orders."""
+    column_map: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    for index, (order, m) in enumerate(harmonic_indices):
+        key = (int(order), int(abs(m)))
+        column_map.setdefault(key, []).append((index, int(m)))
+    return column_map
+
+
+def _assign_real_harmonic_columns(
+    X: np.ndarray,
+    column_map: dict[tuple[int, int], list[tuple[int, int]]],
+    order: int,
+    abs_m: int,
+    plm: np.ndarray,
+    cos_mphi: dict[int, np.ndarray],
+    sin_mphi: dict[int, np.ndarray],
+) -> None:
+    """Write all real harmonics for a given ``(order, |m|)``."""
+    entries = column_map.get((order, abs_m))
+    if entries is None:
+        return
+
+    sqrt2 = np.sqrt(2.0)
+    for column_index, signed_m in entries:
+        if signed_m == 0:
+            X[:, column_index] = plm
+        elif signed_m > 0:
+            X[:, column_index] = sqrt2 * plm * cos_mphi[abs_m]
+        else:
+            X[:, column_index] = sqrt2 * plm * sin_mphi[abs_m]
+
+
+def _build_design_matrix_via_alf_recursion(
+    harmonic_indices: np.ndarray,
+    degree: int,
+    theta: np.ndarray,
+    phi: np.ndarray,
+    coefficients: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+    column_map: dict[tuple[int, int], list[tuple[int, int]]],
+    abs_orders: tuple[int, ...],
+) -> np.ndarray:
+    """Build the real spherical harmonics design matrix via stable ALF recursion."""
+    alpha, beta, sectoral, sub_sectoral = coefficients
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+    cos_mphi = {abs_m: np.cos(abs_m * phi) for abs_m in abs_orders}
+    sin_mphi = {abs_m: np.sin(abs_m * phi) for abs_m in abs_orders}
+
+    X = np.empty((len(theta), len(harmonic_indices)), dtype=float)
+    p_mm = np.full(len(theta), 1.0 / np.sqrt(4.0 * np.pi), dtype=float)
+
+    for abs_m in range(degree + 1):
+        if abs_m > 0:
+            p_mm = sectoral[abs_m] * sin_theta * p_mm
+
+        p_prev2 = p_mm
+        _assign_real_harmonic_columns(
+            X, column_map, abs_m, abs_m, p_prev2, cos_mphi, sin_mphi
+        )
+        if abs_m == degree:
+            continue
+
+        p_prev1 = sub_sectoral[abs_m] * cos_theta * p_prev2
+        _assign_real_harmonic_columns(
+            X, column_map, abs_m + 1, abs_m, p_prev1, cos_mphi, sin_mphi
+        )
+
+        for order in range(abs_m + 2, degree + 1):
+            p_current = (
+                alpha[order, abs_m] * cos_theta * p_prev1
+                - beta[order, abs_m] * p_prev2
+            )
+            _assign_real_harmonic_columns(
+                X, column_map, order, abs_m, p_current, cos_mphi, sin_mphi
+            )
+            p_prev2 = p_prev1
+            p_prev1 = p_current
+
+    return X
+
+
 class PolynomialBasis(TransformerMixin, BaseEstimator):
     """An example transformer that returns the element-wise square root.
 
@@ -275,6 +386,12 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
     cup : bool, default=True
         If `True`, use the cup design matrix; otherwise, use the full design matrix.
 
+    implementation : {"recursion", "scipy"}, default="recursion"
+        Backend used to evaluate the design matrix. ``"recursion"`` uses a
+        stable associated-Legendre recursion and is faster for moderate to high
+        degrees, while ``"scipy"`` preserves the direct ``scipy.special``
+        evaluation path.
+
     Attributes
     ----------
     n_features_in_ : int
@@ -302,6 +419,7 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         "coords_convert_method": [
             StrOptions({"central_scale", "central", "basic", "non"})
         ],
+        "implementation": [StrOptions({"recursion", "scipy"})],
     }
 
     def __init__(
@@ -314,6 +432,7 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         hemisphere_scale="auto",
         normalize=False,
         coords_convert_method="central_scale",
+        implementation="recursion",
     ) -> None:
         self.degree = degree
         self.pole = pole
@@ -322,6 +441,7 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         self.hemisphere_scale = hemisphere_scale
         self.normalize = normalize
         self.coords_convert_method = coords_convert_method
+        self.implementation = implementation
 
     def __sklearn_tags__(self):
         """Override sklearn tags to indicate this transformer requires 2D input with exactly 2 features."""
@@ -386,7 +506,7 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
                 f"Mismatch in output features: expected {empirical_n_output_features_}, "
                 f"got {self.n_output_features_}"
             )
-        
+
         if self.hemisphere_scale == "auto":
             hemisphere_scale = 0.5 if self.cup else 1
         else:
@@ -400,6 +520,19 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
         lon, lat = X[:, 0], X[:, 1]
         self.coords_converter_.fit(lon, lat)
 
+        if self.implementation == "recursion":
+            self.alf_coefficients_ = _precompute_alf_coefficients(self.degree)
+            self.harmonic_column_map_ = _build_harmonic_column_map(
+                self.harmonic_indices_
+            )
+            self.harmonic_abs_orders_ = tuple(
+                sorted({int(abs(m)) for _, m in self.harmonic_indices_ if m != 0})
+            )
+        elif hasattr(self, "alf_coefficients_"):
+            delattr(self, "alf_coefficients_")
+            delattr(self, "harmonic_column_map_")
+            delattr(self, "harmonic_abs_orders_")
+
         if self.normalize:
             theta, phi = self.coords_converter_.transform(lon, lat)
             X_basis = self._build_design_matrix(theta, phi)
@@ -412,7 +545,7 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
             delattr(self, "column_norms_")
             if hasattr(self, "column_normalizers_"):
                 delattr(self, "column_normalizers_")
-        
+
         # Expose key fitted parameters as top-level attributes for sklearn compliance
         self.pole_ = (
             90 - np.degrees(self.coords_converter_.theta0),  # lat
@@ -429,15 +562,24 @@ class SphericalHarmonicsBasis(TransformerMixin, BaseEstimator):
 
     def _build_design_matrix(self, theta, phi):
         """Evaluate the unnormalized spherical harmonics design matrix."""
-        n_samples = len(phi)
-        X = np.zeros((n_samples, self.n_output_features_))
-
-        # https://www.wikiwand.com/en/articles/Spherical_harmonics
-        # https://www.wikiwand.com/en/articles/Spherical_harmonics#Real_form
-        for index, harmonic_index in enumerate(self.harmonic_indices_):
-            X[:, index] = _evaluate_real_spherical_harmonic(
-                harmonic_index, theta, phi
+        if self.implementation == "recursion":
+            X = _build_design_matrix_via_alf_recursion(
+                self.harmonic_indices_,
+                self.degree,
+                theta,
+                phi,
+                self.alf_coefficients_,
+                self.harmonic_column_map_,
+                self.harmonic_abs_orders_,
             )
+        else:
+            n_samples = len(phi)
+            X = np.empty((n_samples, self.n_output_features_), dtype=float)
+
+            for index, harmonic_index in enumerate(self.harmonic_indices_):
+                X[:, index] = _evaluate_real_spherical_harmonic(
+                    harmonic_index, theta, phi
+                )
 
         if self.cup:
             X = X * np.sqrt(2)

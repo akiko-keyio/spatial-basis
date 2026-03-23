@@ -23,6 +23,46 @@ def test_basic_fit_transform():
     assert X_transformed.shape[1] == basis.n_output_features_
 
 
+def test_default_implementation_is_recursion():
+    """Test the default spherical harmonics backend is the recursion path."""
+    X = np.array([[116.4, 39.9], [121.5, 31.2], [114.1, 22.6], [113.3, 23.1]])
+
+    default_basis = SphericalHarmonicsBasis(degree=3, cup=True)
+    recursion_basis = SphericalHarmonicsBasis(
+        degree=3, cup=True, implementation="recursion"
+    )
+
+    Xt_default = default_basis.fit_transform(X)
+    Xt_recursion = recursion_basis.fit_transform(X)
+
+    assert default_basis.implementation == "recursion"
+    assert np.allclose(Xt_default, Xt_recursion, atol=1e-12, rtol=1e-12)
+
+
+@pytest.mark.parametrize("cup", [True, False])
+def test_spherical_implementations_match(cup):
+    """Test scipy and recursion backends compute the same design matrix."""
+    X = np.array(
+        [
+            [116.4, 39.9],
+            [121.5, 31.2],
+            [114.1, 22.6],
+            [113.3, 23.1],
+            [118.8, 32.1],
+        ]
+    )
+
+    scipy_basis = SphericalHarmonicsBasis(degree=5, cup=cup, implementation="scipy")
+    recursion_basis = SphericalHarmonicsBasis(
+        degree=5, cup=cup, implementation="recursion"
+    )
+
+    Xt_scipy = scipy_basis.fit_transform(X)
+    Xt_recursion = recursion_basis.fit_transform(X)
+
+    assert np.allclose(Xt_scipy, Xt_recursion, atol=1e-11, rtol=1e-11)
+
+
 def test_normalize_uses_fitted_column_norms():
     """Test normalize reuses column norms learned during fit."""
     X_train = np.array(
@@ -276,18 +316,21 @@ def test_get_params_set_params():
     params = basis.get_params()
     assert params['degree'] == 3
     assert not params['cup']
+    assert params["implementation"] == "recursion"
     
-    basis.set_params(degree=5)
+    basis.set_params(degree=5, implementation="scipy")
     assert basis.degree == 5
+    assert basis.implementation == "scipy"
 
 
 def test_clone():
     """Test that estimator can be cloned."""
-    basis = SphericalHarmonicsBasis(degree=3, cup=True)
+    basis = SphericalHarmonicsBasis(degree=3, cup=True, implementation="scipy")
     basis_clone = clone(basis)
     
     assert basis_clone.degree == basis.degree
     assert basis_clone.cup == basis.cup
+    assert basis_clone.implementation == basis.implementation
 
 
 def test_pole_tuple():
